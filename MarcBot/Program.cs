@@ -1,26 +1,62 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using CommandLine;
+using CommandLine.Text;
 using WatsonWebsocket;
 
 namespace MarcBot;
 
 
 
-class Program
+internal class Program
 {
+    public class Options
+    {
+        [Option('b', "binding", Required = false, HelpText = "The server address (can be a IP or DNS name). Defualt is localhost.")]
+        public string? ServerAddress { get; set; }
+
+        [Option('p', "port", Required = false, HelpText = "The server port. Default 8001")]
+        public string? ServerPort { get; set; }
+
+
+    }
+
     private static WatsonWsServer? server;
     private static Dictionary<int, string> clients;
 
 
     static void Main(string[] args)
     {
+        int port = 8001;
+        string binding = "localhost";
+
+        // parse the commandline args
+        Parser.Default.ParseArguments<Options>(args)
+                 .WithParsed<Options>(o =>
+                 {
+                    if(!String.IsNullOrEmpty(o.ServerAddress))
+                     {
+                         binding = o.ServerAddress;
+                     }
+
+                     if (o.ServerPort != null)
+                     {
+                         port = Convert.ToInt32(o.ServerPort);
+                     }
+                    
+
+
+                 });
 
         Console.WriteLine("Welcome to MarcBot Server");
+        Console.WriteLine();
         Console.WriteLine(@"Usage: Type /[ID] [MSG] to send a message. (where '[ID]' is the numeric ID of the client computer, and '[MSG]' is text you want to send. You can include HTML.");
-        Console.WriteLine("To set the typing indicator, send a message that says 'typing");
-        // [T]
-        int port = 8001;
-        server = new WatsonWsServer("localhost", port, false);
+        Console.WriteLine();
+        Console.WriteLine("To set the typing indicator, send a message that says 'typing'.");
+
+
+        server = new WatsonWsServer(binding, port, false);
         server.ClientConnected += ClientConnected;
         server.ClientDisconnected += ClientDisconnected;
         server.MessageReceived += MessageReceived;
@@ -28,7 +64,7 @@ class Program
         while (true)
         {
 
-            StartServer(port);
+            StartServer(binding, port);
             string? userInput = Console.ReadLine()?.Trim();
             if (userInput == null) { userInput = String.Empty; };
 
@@ -82,7 +118,7 @@ class Program
 
     }
 
-    private static void StartServer(int port)
+    private static void StartServer(string binding, int port)
     {
         try
         {
@@ -90,14 +126,14 @@ class Program
             {
                 server.Start();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("*** Server Started on port {0} ***", port);
+                Console.WriteLine("*** Server Listening on {0}:{1} ***", binding, port);
                 Console.ResetColor();
             }
         }
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.DarkMagenta;
-            Console.WriteLine("Error: ", ex.Message);
+            Console.WriteLine("Error: {0} ", ex.Message);
             // Quit the app
             Environment.Exit(-1);
         }
@@ -107,9 +143,19 @@ class Program
     {
         string messageRaw = Encoding.UTF8.GetString(e.Data);
         var webMessage = JsonSerializer.Deserialize<WebMessage>(JsonDocument.Parse(messageRaw));
+        var clientId = GetClientIdFromIp(e.IpPort);
         int id = GetClientIdFromIp(e.IpPort);
 
-        Console.WriteLine("{1}({0}): {2}", id, webMessage.name, webMessage.message);
+        if (webMessage.message.Length > 0)
+        {
+            Console.WriteLine("{1}({0}): {2}", id, webMessage.name, webMessage.message);
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("*** Client {0} set their name to  '{1}' ***: {0}", clientId, webMessage.name);
+            Console.ResetColor();
+        }
     }
 
     private static void ClientDisconnected(object? sender, ClientDisconnectedEventArgs e)

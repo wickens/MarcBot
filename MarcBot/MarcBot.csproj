@@ -9,8 +9,10 @@
 
   <ItemGroup>
     <None Remove="WatsonWebsocket" />
+    <None Remove="CommandLineParser" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WatsonWebsocket" Version="3.0.1" />
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
   </ItemGroup>
 </Project>

@@ -98,9 +98,7 @@
 
             socket.onopen = function () {
                 console.log("connected to web socket!");
-                let wsMsg = { name: userName, message: '' };
-                let wsMsgStr = JSON.stringify(wsMsg);
-                socket.send(wsMsgStr);
+
             };
             socket.onmessage = function (msg) {
                 console.log(msg.data);
@@ -124,18 +122,22 @@
             };
 
 
-
             $(".chat").hide();
             $("#txtName").focus();
 
             $("#btnStart").click(function (e) {
-                userName =  capitalizeFirstLetter($("#txtName").val());
-                $(".chat").show();
-                $("#intro").hide();
+                if (socket) {
+                    userName = capitalizeFirstLetter($("#txtName").val());
+                    $(".chat").show();
+                    $("#intro").hide();
 
-                $("#usersname").html(userName);
-                $("#user-chat-input").focus();
+                    $("#usersname").html(userName);
+                    $("#user-chat-input").focus();
+                    let wsMsg = { name: userName, message: '' };
+                    let wsMsgStr = JSON.stringify(wsMsg);
+                    socket.send(wsMsgStr);
 
+                }
 
             });
 
@@ -157,8 +159,6 @@
                     $('#btnStart').click();
                 }
             });
-
-
 
         });
 
