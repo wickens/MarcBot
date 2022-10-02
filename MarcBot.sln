@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 25.0.1704.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarcBot", "MarcBot\MarcBot.csproj", "{72B702C8-580D-4BAA-B9F9-BE3556521495}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{72B702C8-580D-4BAA-B9F9-BE3556521495}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72B702C8-580D-4BAA-B9F9-BE3556521495}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72B702C8-580D-4BAA-B9F9-BE3556521495}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72B702C8-580D-4BAA-B9F9-BE3556521495}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {ACC70C17-0690-4F15-8106-F3ED232E5EE9}
+	EndGlobalSection
+EndGlobal
