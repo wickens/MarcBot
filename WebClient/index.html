@@ -17,6 +17,7 @@
     <script>
         var currentlyTyping = false;
         var userName = "Marcus";
+        var socket = null;
 
         function addBotMessage(messageText) {
             const Item = ({ time, message }) => `<li class="clearfix"> <div class="message-data text-right"><span class="message-data-time">${time}</span></div><div class="message other-message float-right">${message}</div></li>`;
@@ -55,8 +56,9 @@
                     { time: '', message: '' }
                 ].map(Item).join(''));
 
-                // $('#chatContainer').animate({
-                // scrollTop: $('#chatContainer')[0].scrollHeight}, "fast");
+                $('#chatContainer').animate({
+                    scrollTop: $('#chatContainer')[0].scrollHeight
+                }, "fast");
                 currentlyTyping = isTyping;
 
             } else {
@@ -69,53 +71,70 @@
 
         function getTimeString() {
             let currentDate = new Date();
-            let time = currentDate.getHours() + ":" + currentDate.getMinutes() + ":" + currentDate.getSeconds();
+            let time = currentDate.getHours() + ":" + currentDate.getMinutes();
             return time;
         }
 
-        function getUserMessageForWs() {
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        function sendUserMessage(text) {
+            if (socket) {
+                let wsMsg = { name: userName, message: text };
+                socket.send(JSON.stringify(wsMsg));
+                addUserMessage(text);
 
+            }
+            else {
+                console.log("Did not send message. Web socket was null or user message empty.");
+            }
         }
         $(document).ready(function () {
 
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
-            // addBotMessage("Welcome!");
+
 
             // Web sockety stuff
-            let socket = new WebSocket("ws://localhost:8001/");
+            socket = new WebSocket("ws://localhost:8001/");
 
             socket.onopen = function () {
                 console.log("connected to web socket!");
-                
-                socket.send("Hello, world! It's a fucking message…");
+                let wsMsg = { name: userName, message: '' };
+                let wsMsgStr = JSON.stringify(wsMsg);
+                socket.send(wsMsgStr);
             };
             socket.onmessage = function (msg) {
                 console.log(msg.data);
+                setTyping(false);
+                if (msg.data === 'typing') {
+                    setTyping(true);
+                }
+                else {
+                    addBotMessage(msg.data);
+                }
+
+
             };
             socket.onclose = function () {
-                console.log("closed");
+                console.log("WS closed");
+                addBotMessage("Oh dear. My connection has been closed!");
             };
 
             socket.onerror = function (error) {
-                alert(`Bonkers!: [error] ${error.message}`);
+                alert(`WEB SOCKET ERROR: [error] ${error.message}`);
             };
 
 
 
             $(".chat").hide();
+            $("#txtName").focus();
 
             $("#btnStart").click(function (e) {
-                userName = $("#txtName").val();
+                userName =  capitalizeFirstLetter($("#txtName").val());
                 $(".chat").show();
                 $("#intro").hide();
 
                 $("#usersname").html(userName);
-                
+                $("#user-chat-input").focus();
 
 
             });
@@ -123,16 +142,23 @@
             // user sends a message
             $("#btnSend").click(function (e) {
                 var userMessage = $("#user-chat-input").val().trim();
-                addUserMessage(userMessage);
+                sendUserMessage(userMessage);
             });
 
-            //intro
-            setTyping(true);
-            setTimeout(() => {
-                setTyping(false);
-            }, 10000);
-            $(".chat").show();
-            $("#intro").hide();
+            // make enter key work
+            $("#user-chat-input").keydown(function (e) {
+                if (e.keyCode == 13) {
+                    $('#btnSend').click();
+                }
+            });
+
+            $("#txtName").keydown(function (e) {
+                if (e.keyCode == 13) {
+                    $('#btnStart').click();
+                }
+            });
+
+
 
         });
 

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using WatsonWebsocket;
 
 namespace MarcBot;
@@ -10,10 +11,14 @@ class Program
     private static WatsonWsServer? server;
     private static Dictionary<int, string> clients;
 
+
     static void Main(string[] args)
     {
 
         Console.WriteLine("Welcome to MarcBot Server");
+        Console.WriteLine(@"Usage: Type /[ID] [MSG] to send a message. (where '[ID]' is the numeric ID of the client computer, and '[MSG]' is text you want to send. You can include HTML.");
+        Console.WriteLine("To set the typing indicator, send a message that says 'typing");
+        // [T]
         int port = 8001;
         server = new WatsonWsServer("localhost", port, false);
         server.ClientConnected += ClientConnected;
@@ -33,7 +38,7 @@ class Program
                 SendMessage(userInput);
             }
 
-            //server.SendAsync(clients[1], "this is a message I love messages!");
+ 
         }
 
     }
@@ -47,19 +52,28 @@ class Program
         string[] parts = userInput.Split(' ');
         if (parts.Length > 1)
         {
-            clientId = Convert.ToInt32(parts[0].TrimStart('/'));
-            string toTrim = String.Format("/{0} ", clientId);
-            message = userInput.Substring(toTrim.Length, userInput.Length - toTrim.Length);
+            try
+            {
+                clientId = Convert.ToInt32(parts[0].TrimStart('/'));
+                string toTrim = String.Format("/{0} ", clientId);
+                message = userInput.Substring(toTrim.Length, userInput.Length - toTrim.Length);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Invalid command: " + ex.Message);
+            }
         }
 
         if(!clients.ContainsKey(clientId))
         {
             Console.WriteLine("Cannot find client with ID '{0}'", clientId);
+            return;
         }
 
         if (String.IsNullOrEmpty(message))
         {
             Console.WriteLine("Message cannot be empty");
+            return;
         }
 
 
@@ -91,8 +105,11 @@ class Program
 
     private static void MessageReceived(object? sender, MessageReceivedEventArgs e)
     {
-        string message = Encoding.UTF8.GetString(e.Data);
-        Console.WriteLine("*** Message received *** : {0}", message);
+        string messageRaw = Encoding.UTF8.GetString(e.Data);
+        var webMessage = JsonSerializer.Deserialize<WebMessage>(JsonDocument.Parse(messageRaw));
+        int id = GetClientIdFromIp(e.IpPort);
+
+        Console.WriteLine("{1}({0}): {2}", id, webMessage.name, webMessage.message);
     }
 
     private static void ClientDisconnected(object? sender, ClientDisconnectedEventArgs e)

@@ -3,9 +3,12 @@ namespace MarcBot
 {
 	public class WebMessage
 	{
-		public WebMessage()
-		{
+        public string name { get; set; }
+        public string message { get; set; }
 
+        public WebMessage()
+		{
+			
 		}
 	}
 }
