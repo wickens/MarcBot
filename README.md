@@ -2,7 +2,7 @@
 A chat UI with console app backend. 
 
 
-# Apache reverse proxy config:
+# Apache reverse proxy config for web sockets:
 
 run
 `sudo a2enmod rewrite && sudo service apache2 restart`
