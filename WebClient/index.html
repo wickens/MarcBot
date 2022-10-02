@@ -118,7 +118,8 @@
             };
 
             socket.onerror = function (error) {
-                alert(`WEB SOCKET ERROR: [error] ${error.message}`);
+                $("#intro").hide();
+                alert(`WEB SOCKET ERROR: [error] ${error.message} -  reload the page and tey again`);
             };
 
 

@@ -24,7 +24,8 @@ internal class Program
 
     private static WatsonWsServer? server;
     private static Dictionary<int, string> clients;
-
+    private static int clientIdCounter = 0;
+    private static object key = new object();
 
     static void Main(string[] args)
     {
@@ -178,18 +179,23 @@ internal class Program
 
     private static int AddClient(string IpPort)
     {
-        if (clients == null)
+        lock (key)
         {
-            clients = new Dictionary<int, string>();
-        }
+            if (clients == null)
+            {
+                clients = new Dictionary<int, string>();
+            }
 
-        int clientId = clients.Count + 1;
-        if (clients.ContainsKey(clientId))
-        {
-            clients.Remove(clientId);
+            clientIdCounter++;
+            int clientId = clientIdCounter;
+
+            if (clients.ContainsKey(clientId))
+            {
+                clients.Remove(clientId);
+            }
+            clients.Add(clientId, IpPort);
+            return clientId;
         }
-        clients.Add(clientId, IpPort);
-        return clientId;
     }
 
     private static int RemoveClient(string ip)
