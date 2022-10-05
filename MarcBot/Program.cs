@@ -33,6 +33,7 @@ internal class Program
 
     private static bool automode = false;
 
+
     static void Main(string[] args)
     {
         clientManager = new ClientManager();
@@ -57,7 +58,7 @@ internal class Program
                      }
 
                      automode = o.Autorespond.GetValueOrDefault(false);
-                    
+         
 
 
                  });
@@ -85,7 +86,7 @@ internal class Program
 
             if (userInput.StartsWith("/"))
             {
-                SendMessage(userInput);
+                ProcessInput(userInput);
             }
 
  
@@ -93,7 +94,7 @@ internal class Program
 
     }
 
-    private static async void SendMessage(string userInput)
+    private static async void ProcessInput(string userInput)
     {
         int clientId = -1;
         string message = String.Empty;
@@ -102,7 +103,7 @@ internal class Program
         ExtractClientIDAndMessageFromUserInput(userInput, ref clientId, ref message);
         ConnectedClient client = clientManager.GetById(clientId);
 
-        if(client.Id == -1)
+        if (client.Id == -1)
         {
             Console.WriteLine("Cannot find client with ID '{0}'", clientId);
             return;
@@ -115,10 +116,13 @@ internal class Program
             return;
         }
 
+        await SendMessageToClient(message, client.Ip);
 
-        await server.SendAsync(client.Ip, message);
+    }
 
-
+    private static async Task SendMessageToClient(string message, string ip)
+    {
+        await server.SendAsync(ip, message);
     }
 
     private static void ExtractClientIDAndMessageFromUserInput(string userInput, ref int clientId, ref string message)
@@ -160,7 +164,7 @@ internal class Program
         }
     }
 
-    private static void MessageReceived(object? sender, MessageReceivedEventArgs e)
+    private static async void MessageReceived(object? sender, MessageReceivedEventArgs e)
     {
         string messageRaw = Encoding.UTF8.GetString(e.Data);
         WebMessage webMessage = JsonSerializer.Deserialize<WebMessage>(JsonDocument.Parse(messageRaw));
@@ -175,6 +179,17 @@ internal class Program
 
                 Console.WriteLine("{3} {1}({0}): {2}", client.Id, webMessage.name, webMessage.message, DateTime.Now);
                 Console.ResetColor();
+
+                if (automode)
+                {
+                    if (automode)
+                    {
+                        string returnMsg = String.Format("You said '{0}'.", webMessage.message);
+                        Console.WriteLine("Responded to {0} with '{1}'.", client, returnMsg);
+                        await SendMessageToClient(returnMsg, e.IpPort);
+                    }
+                }
+
             }
             else
             {
@@ -182,6 +197,14 @@ internal class Program
                 Console.WriteLine("*** Client {0} set their name to  '{1}'.", client, webMessage.name);
                 client.Name = webMessage.name;
                 Console.ResetColor();
+
+                if (automode)
+                {
+                    string returnMsg = String.Format("Hello, {0}!", client.Name);
+                    Console.WriteLine("Responded to {0} with '{1}'.", client, returnMsg);
+                    await SendMessageToClient(returnMsg, e.IpPort);
+                }
+
             }
         }
     }
@@ -203,6 +226,7 @@ internal class Program
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("*** Client Connected ***: {0}", client);
         Console.ResetColor();
+
     }
 
 
