@@ -19,18 +19,28 @@ internal class Program
         [Option('p', "port", Required = false, HelpText = "The server port. Default 8001")]
         public string? ServerPort { get; set; }
 
+        [Option('a', "auto", Required = false, HelpText = "Set to true to have the bot auto respond")]
+        public bool? Autorespond { get; set; }
 
     }
 
+    /// <summary>
+    /// the main web socket server
+    /// </summary>
     private static WatsonWsServer? server;
-    private static Dictionary<int, string> clients;
-    private static int clientIdCounter = 0;
-    private static object key = new object();
+
+    private static ClientManager clientManager;
+
+    private static bool automode = false;
 
     static void Main(string[] args)
     {
+        clientManager = new ClientManager();
+
+
         int port = 8001;
         string binding = "localhost";
+     
 
         // parse the commandline args
         Parser.Default.ParseArguments<Options>(args)
@@ -45,16 +55,19 @@ internal class Program
                      {
                          port = Convert.ToInt32(o.ServerPort);
                      }
+
+                     automode = o.Autorespond.GetValueOrDefault(false);
                     
 
 
                  });
 
-        Console.WriteLine("Welcome to MarcBot Server");
+        Console.WriteLine("Welcome to MarcBot Server v1.1");
+        Console.WriteLine();  
         Console.WriteLine();
-        Console.WriteLine(@"Usage: Type /[ID] [MSG] to send a message. (where '[ID]' is the numeric ID of the client computer, and '[MSG]' is text you want to send. You can include HTML.");
+        Console.WriteLine(@"Usage: Type /[ID] [MSG] to send a message. (where '[ID]' is the numeric ID of the client computer, and '[MSG]' is text you want to send. To set the typing indicator, send a message that says 'typing'.");
         Console.WriteLine();
-        Console.WriteLine("To set the typing indicator, send a message that says 'typing'.");
+        
 
 
         server = new WatsonWsServer(binding, port, false);
@@ -86,6 +99,30 @@ internal class Program
         string message = String.Empty;
 
         // Extract the message and client
+        ExtractClientIDAndMessageFromUserInput(userInput, ref clientId, ref message);
+        ConnectedClient client = clientManager.GetById(clientId);
+
+        if(client.Id == -1)
+        {
+            Console.WriteLine("Cannot find client with ID '{0}'", clientId);
+            return;
+        }
+
+
+        if (String.IsNullOrEmpty(message))
+        {
+            Console.WriteLine("Message cannot be empty");
+            return;
+        }
+
+
+        await server.SendAsync(client.Ip, message);
+
+
+    }
+
+    private static void ExtractClientIDAndMessageFromUserInput(string userInput, ref int clientId, ref string message)
+    {
         string[] parts = userInput.Split(' ');
         if (parts.Length > 1)
         {
@@ -95,28 +132,11 @@ internal class Program
                 string toTrim = String.Format("/{0} ", clientId);
                 message = userInput.Substring(toTrim.Length, userInput.Length - toTrim.Length);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine("Invalid command: " + ex.Message);
             }
         }
-
-        if(!clients.ContainsKey(clientId))
-        {
-            Console.WriteLine("Cannot find client with ID '{0}'", clientId);
-            return;
-        }
-
-        if (String.IsNullOrEmpty(message))
-        {
-            Console.WriteLine("Message cannot be empty");
-            return;
-        }
-
-
-        await server.SendAsync(clients[clientId], message);
-
-
     }
 
     private static void StartServer(string binding, int port)
@@ -143,102 +163,52 @@ internal class Program
     private static void MessageReceived(object? sender, MessageReceivedEventArgs e)
     {
         string messageRaw = Encoding.UTF8.GetString(e.Data);
-        var webMessage = JsonSerializer.Deserialize<WebMessage>(JsonDocument.Parse(messageRaw));
-        var clientId = GetClientIdFromIp(e.IpPort);
-        int id = GetClientIdFromIp(e.IpPort);
+        WebMessage webMessage = JsonSerializer.Deserialize<WebMessage>(JsonDocument.Parse(messageRaw));
 
-        if (webMessage.message.Length > 0)
+        ConnectedClient client = clientManager.GetByIp(e.IpPort);
+
+        if (webMessage != null)
         {
-            Console.WriteLine("{1}({0}): {2}", id, webMessage.name, webMessage.message);
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("*** Client {0} set their name to  '{1}' ***: {0}", clientId, webMessage.name);
-            Console.ResetColor();
+            if (webMessage.message.Length > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+
+                Console.WriteLine("{3} {1}({0}): {2}", client.Id, webMessage.name, webMessage.message, DateTime.Now);
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("*** Client {0} set their name to  '{1}'.", client, webMessage.name);
+                client.Name = webMessage.name;
+                Console.ResetColor();
+            }
         }
     }
 
     private static void ClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
     {
-        int clientId = RemoveClient(e.IpPort);
+        ConnectedClient client = clientManager.GetByIp(e.IpPort);
+        clientManager.Remove(e.IpPort);
+
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine("*** Client Disconnected ***: {0}", clientId);
+        Console.WriteLine("*** Client Disconnected ***: {0}", client);
         Console.ResetColor();
     }
 
     private static void ClientConnected(object? sender, ClientConnectedEventArgs e)
     {
-        int clientId = AddClient(e.IpPort);
-
+        clientManager.Add(new ConnectedClient(e.IpPort));
+        ConnectedClient client = clientManager.GetByIp(e.IpPort);
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("*** Client Connected ***: {0}", clientId);
+        Console.WriteLine("*** Client Connected ***: {0}", client);
         Console.ResetColor();
     }
 
 
-    private static int AddClient(string IpPort)
-    {
-        lock (key)
-        {
-            if (clients == null)
-            {
-                clients = new Dictionary<int, string>();
-            }
+ 
 
-            clientIdCounter++;
-            int clientId = clientIdCounter;
-
-            if (clients.ContainsKey(clientId))
-            {
-                clients.Remove(clientId);
-            }
-            clients.Add(clientId, IpPort);
-            return clientId;
-        }
-    }
-
-    private static int RemoveClient(string ip)
-    {
-        int idToRemove = -1;
-
-        foreach (KeyValuePair<int, string> kvp in clients)
-        {
-            if (kvp.Value.Equals(ip))
-            {
-                idToRemove = kvp.Key;
-                break;
-            }
-        }
-
-        if (idToRemove >= 0)
-        {
-            clients.Remove(idToRemove);
-        }
-
-
-        return idToRemove;
-
-
-    }
-
-    private static int GetClientIdFromIp(string ip)
-    {
-        int result = -1;
-
-        foreach (KeyValuePair<int, string> kvp in clients)
-        {
-            if (kvp.Value.Equals(ip))
-            {
-                result = kvp.Key;
-                break;
-            }
-        }
-
-
-        return result;
-    }
-
+  
 
 }
 
